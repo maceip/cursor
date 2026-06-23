@@ -1,5 +1,6 @@
 package com.example.cursor.nav
 
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -7,6 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -22,15 +26,19 @@ import androidx.window.layout.WindowLayoutInfo
 import com.example.cursor.data.FabricDefaults
 import com.example.cursor.model.WorkbenchKind
 import com.example.cursor.ui.components.ComposerDock
+import com.example.cursor.ui.feedback.rememberCursorHaptics
+import com.example.cursor.ui.motion.CursorBackMorphProvider
 import com.example.cursor.ui.shell.ConversationPane
 import com.example.cursor.ui.shell.CursorShellViewModel
 import com.example.cursor.ui.shell.WorkbenchPane
 import com.example.cursor.ui.theme.CursorSpacing
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
+import kotlin.coroutines.cancellation.CancellationException
 
 @Composable
 fun CursorNavDisplay(
-  windowLayoutInfo: StateFlow<WindowLayoutInfo>,
+  windowLayoutInfo: Flow<WindowLayoutInfo>,
   modifier: Modifier = Modifier,
   providedViewModel: CursorShellViewModel? = null,
 ) {
@@ -41,8 +49,14 @@ fun CursorNavDisplay(
   val workbench by viewModel.activeWorkbench.collectAsStateWithLifecycle()
   val topology by viewModel.topology.collectAsStateWithLifecycle()
   val navigationRequest by viewModel.navigationRequests.collectAsStateWithLifecycle()
-  val layoutInfo by windowLayoutInfo.collectAsStateWithLifecycle()
-  val backStack = rememberNavBackStack(ConversationKey(FabricDefaults.DefaultThreadId))
+  val layoutInfo by windowLayoutInfo.collectAsStateWithLifecycle(initialValue = null)
+  val backStack =
+    rememberNavBackStack(
+      ConversationKey(FabricDefaults.DefaultThreadId),
+      WorkbenchKey(FabricDefaults.DefaultThreadId, WorkbenchKind.Spec),
+    )
+  var backMorphProgress by remember { mutableFloatStateOf(0f) }
+  val haptics = rememberCursorHaptics()
 
   DisposableEffect(lifecycleOwner, viewModel) {
     val observer =
@@ -61,12 +75,6 @@ fun CursorNavDisplay(
     }
   }
 
-  LaunchedEffect(Unit) {
-    if (backStack.none { it is WorkbenchKey }) {
-      backStack.add(WorkbenchKey(FabricDefaults.DefaultThreadId, WorkbenchKind.Spec))
-    }
-  }
-
   LaunchedEffect(navigationRequest, conversation.threadId) {
     val kind = navigationRequest ?: return@LaunchedEffect
     backStack.removeAll { it is WorkbenchKey && it.threadId == conversation.threadId }
@@ -74,9 +82,31 @@ fun CursorNavDisplay(
     viewModel.navigationHandled()
   }
 
+  PredictiveBackHandler(enabled = backStack.size > 1) { progress ->
+    var gestureStarted = false
+    try {
+      progress.collect { event ->
+        if (!gestureStarted) {
+          haptics.predictiveBackStart()
+          gestureStarted = true
+        }
+        backMorphProgress = event.progress
+      }
+      haptics.predictiveBackCommit()
+      backStack.removeLastOrNull()
+    } catch (cancellation: CancellationException) {
+      if (gestureStarted) haptics.predictiveBackCancel()
+      throw cancellation
+    } finally {
+      backMorphProgress = 0f
+    }
+  }
+
   BoxWithConstraints(modifier) {
     val hasSeparatingFold =
-      layoutInfo.displayFeatures
+      layoutInfo
+        ?.displayFeatures
+        .orEmpty()
         .filterIsInstance<FoldingFeature>()
         .any { feature -> feature.isSeparating }
     val canShowTwoPane = hasSeparatingFold || maxWidth >= 600.dp
@@ -107,18 +137,27 @@ fun CursorNavDisplay(
         },
       )
 
-    NavDisplay(
-      backStack = backStack,
-      onBack = { backStack.removeLastOrNull() },
-      sceneStrategy = sceneStrategy,
-      entryProvider =
-        cursorEntryProvider(
-          conversation = conversation,
-          workbench = workbench,
-          topology = topology,
-          onWorkbenchSelected = openWorkbench,
-          onMessageSubmitted = submitMessage,
-        ),
-    )
+    CursorBackMorphProvider(progress = backMorphProgress) {
+      NavDisplay(
+        backStack = backStack,
+        onBack = {
+          haptics.predictiveBackCommit()
+          backStack.removeLastOrNull()
+        },
+        sceneStrategy = sceneStrategy,
+        sizeTransform = cursorSceneSizeTransform(),
+        transitionSpec = { cursorSceneTransition() },
+        popTransitionSpec = { cursorPopSceneTransition() },
+        predictivePopTransitionSpec = { progress -> cursorPredictivePopSceneTransition(progress) },
+        entryProvider =
+          cursorEntryProvider(
+            conversation = conversation,
+            workbench = workbench,
+            topology = topology,
+            onWorkbenchSelected = openWorkbench,
+            onMessageSubmitted = submitMessage,
+          ),
+      )
+    }
   }
 }

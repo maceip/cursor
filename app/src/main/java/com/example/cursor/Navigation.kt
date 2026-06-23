@@ -13,10 +13,10 @@ import com.example.cursor.ui.control.CursorAppViewModel
 import com.example.cursor.ui.control.CursorOnboardingScreen
 import com.example.cursor.ui.control.CursorPoolHome
 import com.example.cursor.ui.shell.CursorShellViewModel
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
 
 @Composable
-fun MainNavigation(windowLayoutInfo: StateFlow<WindowLayoutInfo>) {
+fun MainNavigation(windowLayoutInfo: Flow<WindowLayoutInfo>) {
   val context = LocalContext.current.applicationContext
   val appViewModel: CursorAppViewModel = viewModel { CursorAppViewModel(context) }
   val shellViewModel: CursorShellViewModel =

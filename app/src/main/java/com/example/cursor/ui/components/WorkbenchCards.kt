@@ -5,14 +5,21 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,13 +29,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.cursor.model.AgentStatus
 import com.example.cursor.model.ChecklistItem
 import com.example.cursor.model.FabricTopologyState
-import com.example.cursor.model.AgentStatus
+import com.example.cursor.model.SourceCard
 import com.example.cursor.model.WorkbenchKind
+import com.example.cursor.ui.motion.cursorBackMorph
 import com.example.cursor.ui.theme.CursorColors
 import com.example.cursor.ui.theme.CursorShape
 import com.example.cursor.ui.theme.CursorSpacing
@@ -38,18 +48,26 @@ fun WorkbenchCard(
   title: String,
   modifier: Modifier = Modifier,
   eyebrow: String? = null,
+  icon: ImageVector? = null,
   trailing: @Composable (() -> Unit)? = null,
   content: @Composable () -> Unit,
 ) {
   Surface(
-    modifier = modifier.fillMaxWidth(),
+    modifier =
+      modifier
+        .fillMaxWidth()
+        .cursorBackMorph(scaleXTarget = 0.96f, scaleYTarget = 0.9f, alphaTarget = 0.78f, translateY = 14f),
     shape = CursorShape.Card,
     color = CursorColors.Surface,
     border = BorderStroke(1.dp, CursorColors.Stroke),
-    tonalElevation = 1.dp,
+    tonalElevation = 0.dp,
   ) {
-    Column(Modifier.padding(CursorSpacing.Lg), verticalArrangement = Arrangement.spacedBy(CursorSpacing.Md)) {
+    Column(Modifier.padding(horizontal = CursorSpacing.Sm, vertical = CursorSpacing.Sm), verticalArrangement = Arrangement.spacedBy(CursorSpacing.Xs)) {
       Row(verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) {
+          Icon(icon, contentDescription = null, modifier = Modifier.size(15.dp), tint = CursorColors.Ink)
+          Spacer(Modifier.width(CursorSpacing.Sm))
+        }
         Column(Modifier.weight(1f)) {
           if (eyebrow != null) {
             Text(eyebrow, style = MaterialTheme.typography.labelMedium, color = CursorColors.Muted)
@@ -68,20 +86,29 @@ fun CursorChip(
   text: String,
   modifier: Modifier = Modifier,
   selected: Boolean = false,
-  contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+  icon: ImageVector? = null,
+  contentPadding: PaddingValues = PaddingValues(horizontal = 9.dp, vertical = 5.dp),
 ) {
   Surface(
     modifier = modifier,
     shape = CursorShape.Chip,
-    color = if (selected) Color(0xFFEAF3FF) else CursorColors.Surface,
+    color = if (selected) CursorColors.BlueSoft else CursorColors.Surface,
     border = BorderStroke(1.dp, if (selected) CursorColors.Blue.copy(alpha = 0.35f) else CursorColors.Stroke),
   ) {
-    Text(
-      text = text,
+    Row(
       modifier = Modifier.padding(contentPadding),
-      style = MaterialTheme.typography.labelMedium,
-      color = if (selected) CursorColors.Blue else CursorColors.Ink,
-    )
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(CursorSpacing.Xs),
+    ) {
+      if (icon != null) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(13.dp), tint = if (selected) CursorColors.Blue else CursorColors.Ink)
+      }
+      Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = if (selected) CursorColors.Blue else CursorColors.Ink,
+      )
+    }
   }
 }
 
@@ -97,22 +124,26 @@ fun StatusPill(text: String, modifier: Modifier = Modifier) {
 
 @Composable
 fun Checklist(items: List<ChecklistItem>, modifier: Modifier = Modifier) {
-  Column(modifier, verticalArrangement = Arrangement.spacedBy(CursorSpacing.Sm)) {
+  Column(modifier, verticalArrangement = Arrangement.spacedBy(CursorSpacing.Xs)) {
     items.forEach { item ->
       Row(verticalAlignment = Alignment.Top) {
-        Text(
-          text = if (item.completed) "OK" else "--",
+        Box(
           modifier =
             Modifier
+              .size(14.dp)
               .clip(CircleShape)
-              .background(if (item.completed) CursorColors.Green else CursorColors.SurfaceSoft)
+              .background(if (item.completed) CursorColors.Ink else CursorColors.Surface)
               .border(1.dp, CursorColors.Stroke, CircleShape)
-              .padding(horizontal = 7.dp, vertical = 3.dp),
-          style = MaterialTheme.typography.labelMedium,
-          color = CursorColors.Ink,
-        )
+        ) {
+          Icon(
+            imageVector = if (item.completed) Icons.Outlined.Check else Icons.Outlined.RadioButtonUnchecked,
+            contentDescription = null,
+            modifier = Modifier.align(Alignment.Center).size(if (item.completed) 10.dp else 12.dp),
+            tint = if (item.completed) Color.White else CursorColors.Muted,
+          )
+        }
         Spacer(Modifier.width(CursorSpacing.Sm))
-        Text(item.text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Text(item.text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f), color = CursorColors.Ink)
       }
     }
   }
@@ -174,6 +205,58 @@ fun TopologyStrip(topology: FabricTopologyState, modifier: Modifier = Modifier) 
           )
         }
       }
+    }
+  }
+}
+
+@Composable
+fun CursorIconButton(
+  icon: ImageVector,
+  modifier: Modifier = Modifier,
+  dark: Boolean = false,
+  onClick: () -> Unit = {},
+) {
+  Surface(
+    modifier = modifier.size(34.dp),
+    shape = CircleShape,
+    color = if (dark) CursorColors.Ink else CursorColors.SurfaceSoft,
+    border = if (dark) null else BorderStroke(1.dp, CursorColors.Stroke),
+    onClick = onClick,
+  ) {
+    Box(contentAlignment = Alignment.Center) {
+      Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = if (dark) Color.White else CursorColors.Ink)
+    }
+  }
+}
+
+@Composable
+fun SourceCardView(source: SourceCard, modifier: Modifier = Modifier) {
+  Surface(
+    modifier = modifier.cursorBackMorph(scaleXTarget = 0.98f, scaleYTarget = 0.92f, alphaTarget = 0.8f, translateY = 8f),
+    shape = CursorShape.CardSmall,
+    color = CursorColors.Surface,
+    border = BorderStroke(1.dp, CursorColors.Stroke),
+  ) {
+    Row(
+      modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(CursorSpacing.Sm),
+    ) {
+      Box(
+        modifier =
+          Modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(CursorColors.SurfaceSoft),
+        contentAlignment = Alignment.Center,
+      ) {
+        Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(13.dp), tint = CursorColors.Ink)
+      }
+      Column(Modifier.weight(1f)) {
+        Text(source.title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+        Text(source.detail, style = MaterialTheme.typography.labelMedium, color = CursorColors.Muted)
+      }
+      Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp), tint = CursorColors.Ink)
     }
   }
 }
