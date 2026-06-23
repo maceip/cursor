@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
@@ -21,7 +23,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.cursor.data.FakeFabricRepository
 import com.example.cursor.model.ConversationState
-import com.example.cursor.model.FabricTopologyState
 import com.example.cursor.model.WorkbenchKind
 import com.example.cursor.model.WorkbenchState
 import com.example.cursor.ui.components.ArtifactPreview
@@ -32,10 +33,6 @@ import com.example.cursor.ui.components.CursorHeader
 import com.example.cursor.ui.components.DraftCard
 import com.example.cursor.ui.components.HandoffCard
 import com.example.cursor.ui.components.SpecCards
-import com.example.cursor.ui.components.StatusPill
-import com.example.cursor.ui.components.TopologyStrip
-import com.example.cursor.ui.components.WorkbenchCard
-import com.example.cursor.ui.components.WorkbenchKindTabs
 import com.example.cursor.ui.theme.CursorClaudeTheme
 import com.example.cursor.ui.theme.CursorColors
 import com.example.cursor.ui.theme.CursorSpacing
@@ -44,7 +41,6 @@ import com.example.cursor.ui.theme.CursorSpacing
 fun PhoneConversationLayout(
   conversation: ConversationState,
   workbench: WorkbenchState,
-  topology: FabricTopologyState,
   onWorkbenchSelected: (WorkbenchKind) -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -52,15 +48,17 @@ fun PhoneConversationLayout(
     modifier
       .fillMaxSize()
       .background(CursorColors.Cream)
-      .padding(horizontal = 18.dp, vertical = 16.dp),
-    verticalArrangement = Arrangement.spacedBy(CursorSpacing.Lg),
+      .statusBarsPadding()
+      .navigationBarsPadding()
+      .padding(horizontal = 16.dp, vertical = 12.dp),
+    verticalArrangement = Arrangement.spacedBy(CursorSpacing.Md),
   ) {
     CursorHeader(conversation)
     ChatPane(
       conversation = conversation,
       onWorkbenchSelected = onWorkbenchSelected,
       modifier = Modifier.weight(1f),
-      inlineWorkbench = { WorkbenchBody(workbench, topology, onWorkbenchSelected) },
+      inlineWorkbench = { WorkbenchBody(workbench) },
     )
     ComposerDock(conversation.composer)
   }
@@ -76,8 +74,9 @@ fun ConversationPane(
     modifier
       .fillMaxSize()
       .background(CursorColors.Cream)
-      .padding(CursorSpacing.Xl),
-    verticalArrangement = Arrangement.spacedBy(CursorSpacing.Lg),
+      .statusBarsPadding()
+      .padding(horizontal = CursorSpacing.Xl, vertical = CursorSpacing.Lg),
+    verticalArrangement = Arrangement.spacedBy(CursorSpacing.Md),
   ) {
     CursorHeader(conversation)
     ChatPane(
@@ -91,7 +90,6 @@ fun ConversationPane(
 @Composable
 fun WorkbenchPane(
   workbench: WorkbenchState,
-  topology: FabricTopologyState,
   onWorkbenchSelected: (WorkbenchKind) -> Unit,
   modifier: Modifier = Modifier,
 ) {
@@ -100,32 +98,16 @@ fun WorkbenchPane(
       modifier
         .fillMaxHeight()
         .background(CursorColors.Cream),
-    contentPadding = PaddingValues(CursorSpacing.Xl),
-    verticalArrangement = Arrangement.spacedBy(CursorSpacing.Lg),
+    contentPadding = PaddingValues(horizontal = CursorSpacing.Xl, vertical = CursorSpacing.Lg),
+    verticalArrangement = Arrangement.spacedBy(CursorSpacing.Md),
   ) {
-    item {
-      WorkbenchCard(
-        title = workbench.title,
-        eyebrow = workbench.status,
-        trailing = { StatusPill(workbench.kind.name) },
-      ) {
-        androidx.compose.material3.Text(workbench.summary)
-        WorkbenchKindTabs(
-          kinds = WorkbenchKind.entries,
-          selectedKind = workbench.kind,
-          onKindSelected = onWorkbenchSelected,
-        )
-      }
-    }
-    item { WorkbenchBody(workbench, topology, onWorkbenchSelected) }
+    item { WorkbenchBody(workbench) }
   }
 }
 
 @Composable
 fun WorkbenchBody(
   workbench: WorkbenchState,
-  topology: FabricTopologyState,
-  onWorkbenchSelected: (WorkbenchKind) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   Column(modifier, verticalArrangement = Arrangement.spacedBy(CursorSpacing.Md)) {
@@ -136,13 +118,6 @@ fun WorkbenchBody(
       WorkbenchKind.Artifact -> workbench.artifact?.let { ArtifactPreview(it) }
       WorkbenchKind.Writing -> workbench.draft?.let { DraftCard(it) }
     }
-    TopologyStrip(topology)
-    WorkbenchKindTabs(
-      kinds = WorkbenchKind.entries,
-      selectedKind = workbench.kind,
-      onKindSelected = onWorkbenchSelected,
-      modifier = Modifier.fillMaxWidth(),
-    )
   }
 }
 
@@ -175,35 +150,89 @@ fun CursorTwoPaneLayout(
 
 @Preview(showBackground = true, widthDp = 390, heightDp = 820)
 @Composable
-private fun PhoneConversationLayoutPreview() {
-  val repository = remember { FakeFabricRepository() }
+private fun PhoneSpecPreview() {
+  PhonePreview(WorkbenchKind.Spec)
+}
+
+@Preview(showBackground = true, widthDp = 390, heightDp = 820)
+@Composable
+private fun PhoneCodeReviewPreview() {
+  PhonePreview(WorkbenchKind.CodeReview)
+}
+
+@Preview(showBackground = true, widthDp = 390, heightDp = 820)
+@Composable
+private fun PhoneHandoffPreview() {
+  PhonePreview(WorkbenchKind.Handoff)
+}
+
+@Preview(showBackground = true, widthDp = 390, heightDp = 820)
+@Composable
+private fun PhoneArtifactPreview() {
+  PhonePreview(WorkbenchKind.Artifact)
+}
+
+@Preview(showBackground = true, widthDp = 390, heightDp = 820)
+@Composable
+private fun PhoneWritingPreview() {
+  PhonePreview(WorkbenchKind.Writing)
+}
+
+@Preview(showBackground = true, widthDp = 900, heightDp = 640)
+@Composable
+private fun FoldSpecPreview() {
+  FoldPreview(WorkbenchKind.Spec)
+}
+
+@Preview(showBackground = true, widthDp = 900, heightDp = 640)
+@Composable
+private fun FoldCodeReviewPreview() {
+  FoldPreview(WorkbenchKind.CodeReview)
+}
+
+@Preview(showBackground = true, widthDp = 900, heightDp = 640)
+@Composable
+private fun FoldHandoffPreview() {
+  FoldPreview(WorkbenchKind.Handoff)
+}
+
+@Preview(showBackground = true, widthDp = 900, heightDp = 640)
+@Composable
+private fun FoldArtifactPreview() {
+  FoldPreview(WorkbenchKind.Artifact)
+}
+
+@Preview(showBackground = true, widthDp = 900, heightDp = 640)
+@Composable
+private fun FoldWritingPreview() {
+  FoldPreview(WorkbenchKind.Writing)
+}
+
+@Composable
+private fun PhonePreview(kind: WorkbenchKind) {
+  val repository = remember { FakeFabricRepository(initialKind = kind) }
   val conversation by repository.conversation.collectAsState()
   val workbench by repository.activeWorkbench.collectAsState()
-  val topology by repository.topology.collectAsState()
   CursorClaudeTheme {
     PhoneConversationLayout(
       conversation = conversation,
       workbench = workbench,
-      topology = topology,
       onWorkbenchSelected = {},
     )
   }
 }
 
-@Preview(showBackground = true, widthDp = 900, heightDp = 640)
 @Composable
-private fun CursorTwoPaneLayoutPreview() {
-  val repository = remember { FakeFabricRepository() }
+private fun FoldPreview(kind: WorkbenchKind) {
+  val repository = remember { FakeFabricRepository(initialKind = kind) }
   val conversation by repository.conversation.collectAsState()
   val workbench by repository.activeWorkbench.collectAsState()
-  val topology by repository.topology.collectAsState()
   CursorClaudeTheme {
     CursorTwoPaneLayout(
       conversation = { ConversationPane(conversation, onWorkbenchSelected = {}) },
       workbench = {
         WorkbenchPane(
           workbench = workbench,
-          topology = topology,
           onWorkbenchSelected = {},
         )
       },

@@ -32,43 +32,43 @@ private val CursorTypography =
       TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
+        fontSize = 19.sp,
+        lineHeight = 24.sp,
       ),
     titleLarge =
       TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
+        fontSize = 15.sp,
+        lineHeight = 19.sp,
       ),
     titleMedium =
       TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
       ),
     bodyLarge =
       TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
+        fontSize = 12.sp,
+        lineHeight = 17.sp,
       ),
     bodyMedium =
       TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
+        fontSize = 11.sp,
+        lineHeight = 15.sp,
       ),
     labelMedium =
       TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
+        fontSize = 9.sp,
+        lineHeight = 12.sp,
       ),
   )
 

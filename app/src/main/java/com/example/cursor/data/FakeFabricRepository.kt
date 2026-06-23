@@ -2,6 +2,7 @@ package com.example.cursor.data
 
 import com.example.cursor.model.AgentRunState
 import com.example.cursor.model.AgentStatus
+import com.example.cursor.model.ArtifactChoice
 import com.example.cursor.model.ArtifactWorkbench
 import com.example.cursor.model.AttachmentChip
 import com.example.cursor.model.ChecklistItem
@@ -18,6 +19,7 @@ import com.example.cursor.model.HostTopology
 import com.example.cursor.model.MessageAuthor
 import com.example.cursor.model.PromptToken
 import com.example.cursor.model.PromptTokenKind
+import com.example.cursor.model.SourceCard
 import com.example.cursor.model.SpecSection
 import com.example.cursor.model.SpecWorkbench
 import com.example.cursor.model.WorkbenchKind
@@ -29,17 +31,19 @@ import kotlinx.coroutines.flow.asStateFlow
 
 class FakeFabricRepository(
   private val threadId: String = DefaultThreadId,
+  initialKind: WorkbenchKind = WorkbenchKind.Spec,
 ) : FabricRepository {
-  private val _conversation = MutableStateFlow(seedConversation(threadId))
+  private val _conversation = MutableStateFlow(seedConversation(threadId, initialKind))
   override val conversation: StateFlow<ConversationState> = _conversation.asStateFlow()
 
-  private val _activeWorkbench = MutableStateFlow(seedWorkbench(threadId, WorkbenchKind.Spec))
+  private val _activeWorkbench = MutableStateFlow(seedWorkbench(threadId, initialKind))
   override val activeWorkbench: StateFlow<WorkbenchState> = _activeWorkbench.asStateFlow()
 
   private val _topology = MutableStateFlow(seedTopology())
   override val topology: StateFlow<FabricTopologyState> = _topology.asStateFlow()
 
   override fun openWorkbench(kind: WorkbenchKind) {
+    _conversation.value = seedConversation(threadId, kind)
     _activeWorkbench.value = seedWorkbench(threadId, kind)
   }
 
@@ -48,53 +52,103 @@ class FakeFabricRepository(
   }
 }
 
-private fun seedConversation(threadId: String) =
+internal fun seedConversation(threadId: String, kind: WorkbenchKind) =
   ConversationState(
     threadId = threadId,
-    title = "Cursor mobile control tower",
-    workspaceName = "acme/mobile",
-    modelName = "Cursor Pro",
-    messages =
+    title = kind.label,
+    workspaceName = "Acme Workspace",
+    modelName = if (kind == WorkbenchKind.CodeReview) "Claude 3.5 Sonnet" else "Cursor Pro - GPT-4.1",
+    messages = messagesFor(kind),
+    composer =
+      ComposerState(
+        promptHint = "Ask anything or type @ to mention",
+        attachments =
+          if (kind == WorkbenchKind.Handoff) listOf(AttachmentChip("recap-one-pager.pdf", "412 KB")) else emptyList(),
+        tokens = emptyList(),
+        quickActions = listOf("Search", "Files", "Think", "More"),
+        isVoiceReady = true,
+      ),
+    workbenchShortcuts = WorkbenchKind.entries.map { WorkbenchShortcut(it, it.label, it.shortLabel) },
+  )
+
+private fun messagesFor(kind: WorkbenchKind): List<ConversationMessage> =
+  when (kind) {
+    WorkbenchKind.Spec ->
       listOf(
         ConversationMessage(
-          id = "m1",
+          id = "spec-user",
           author = MessageAuthor.User,
-          body = "Help me plan the mobile agent controller, review code changes, and hand off work to desktop.",
+          body = "Help me plan a product spec for a mobile flashcards app for students.",
           timestamp = "10:12 AM",
         ),
         ConversationMessage(
-          id = "m2",
+          id = "spec-cursor",
           author = MessageAuthor.Cursor,
-          body = "I set up a shared conversation stack with workbench panes for specs, diffs, artifacts, handoffs, and writing drafts.",
+          body = "Sure - here's a high-level plan for your mobile flashcards app. We'll define the core experience, key features, and a phased roadmap.",
+          timestamp = "10:12 AM",
+        ),
+      )
+    WorkbenchKind.CodeReview ->
+      listOf(
+        ConversationMessage(
+          id = "code-user",
+          author = MessageAuthor.User,
+          body = "I'm seeing a bug where the timer won't reset when I start it again. Can you help me fix this?",
+          timestamp = "10:12 AM",
+        ),
+        ConversationMessage(
+          id = "code-cursor",
+          author = MessageAuthor.Cursor,
+          body = "The issue is that you're not clearing the interval when restarting. I'll update the hook to properly reset state and clean up the previous interval.",
           timestamp = "10:13 AM",
         ),
-      ),
-    composer =
-      ComposerState(
-        promptHint = "Ask Cursor, type @ for context, or / for actions",
-        attachments =
-          listOf(
-            AttachmentChip("todo.md", ".shape/design"),
-            AttachmentChip("mobile-agent", "workspace"),
-          ),
-        tokens =
-          listOf(
-            PromptToken("@workspace", PromptTokenKind.Mention),
-            PromptToken("/spec", PromptTokenKind.SlashCommand),
-            PromptToken("FabricRepository.kt", PromptTokenKind.File),
-          ),
-        quickActions = listOf("Search", "Files", "Think", "Voice"),
-        isVoiceReady = true,
-      ),
-    workbenchShortcuts =
+      )
+    WorkbenchKind.Handoff ->
       listOf(
-        WorkbenchShortcut(WorkbenchKind.Spec, "Spec", "Product plan"),
-        WorkbenchShortcut(WorkbenchKind.CodeReview, "Code", "Diff tokens"),
-        WorkbenchShortcut(WorkbenchKind.Handoff, "Handoff", "Desktop bridge"),
-        WorkbenchShortcut(WorkbenchKind.Artifact, "Artifact", "Preview"),
-        WorkbenchShortcut(WorkbenchKind.Writing, "Writing", "Draft polish"),
-      ),
-  )
+        ConversationMessage(
+          id = "handoff-user",
+          author = MessageAuthor.User,
+          body = "I'm running late to a meeting. Can you attach my recap deck one-pager from my laptop as a PDF and attach it to my 2 PM invite?",
+          timestamp = "10:12 AM",
+        ),
+        ConversationMessage(
+          id = "handoff-cursor",
+          author = MessageAuthor.Cursor,
+          body = "Sure thing - pulling up the deck now.",
+          timestamp = "10:12 AM",
+        ),
+      )
+    WorkbenchKind.Artifact ->
+      listOf(
+        ConversationMessage(
+          id = "artifact-user",
+          author = MessageAuthor.User,
+          body = "Can you build a small flashcards or quiz app that helps me study neuroscience?",
+          timestamp = "10:12 AM",
+        ),
+        ConversationMessage(
+          id = "artifact-cursor",
+          author = MessageAuthor.Cursor,
+          body = "Absolutely! I'll build a simple flashcards app with spaced repetition, a clean review flow, and progress tracking.\n\nHere's a preview of the interactive app.",
+          timestamp = "10:12 AM",
+        ),
+      )
+    WorkbenchKind.Writing ->
+      listOf(
+        ConversationMessage(
+          id = "writing-user",
+          author = MessageAuthor.User,
+          body = "How can I improve this interview follow-up email to be more professional?\n\nI drafted two versions - a warm, gracious note and a more confident, concise one. Pick whichever fits.",
+          timestamp = "10:12 AM",
+        ),
+        ConversationMessage(
+          id = "writing-cursor",
+          author = MessageAuthor.Cursor,
+          body = "I can refine your email with a few different tones. Choose the one that best fits your style and goal.",
+          timestamp = "10:12 AM",
+        ),
+      )
+  }
 
 private fun seedTopology() =
   FabricTopologyState(
@@ -132,7 +186,7 @@ private fun seedTopology() =
       ),
   )
 
-private fun seedWorkbench(threadId: String, kind: WorkbenchKind): WorkbenchState =
+internal fun seedWorkbench(threadId: String, kind: WorkbenchKind): WorkbenchState =
   when (kind) {
     WorkbenchKind.Spec -> specWorkbench(threadId)
     WorkbenchKind.CodeReview -> codeReviewWorkbench(threadId)
@@ -158,9 +212,15 @@ private fun specWorkbench(threadId: String) =
           ),
         nextSteps =
           listOf(
-            ChecklistItem("Keep phone and foldable on one back stack", true),
-            ChecklistItem("Render workbench inline on narrow screens", false),
-            ChecklistItem("Swap fake repository for Room and gRPC later", false),
+            ChecklistItem("Confirm target users and success metrics", false),
+            ChecklistItem("Define MVP scope", false),
+            ChecklistItem("Draft information architecture", false),
+            ChecklistItem("Review technical constraints", false),
+          ),
+        sources =
+          listOf(
+            SourceCard("Spaced repetition best practices", "supermemo.com"),
+            SourceCard("Mobile learning UX guide", "nngroup.com"),
           ),
       ),
     codeReview = null,
@@ -181,28 +241,35 @@ private fun codeReviewWorkbench(threadId: String) =
       CodeReviewWorkbench(
         plan =
           listOf(
-            ChecklistItem("Parse diff deltas off the UI path", true),
-            ChecklistItem("Render additions and removals as stable rows", true),
-            ChecklistItem("Persist packets by sequence number later", false),
+            ChecklistItem("Review timer state logic in useTimer.ts", true),
+            ChecklistItem("Clear existing interval on restart", false),
+            ChecklistItem("Reset elapsed time to 0", false),
+            ChecklistItem("Add test to prevent regression", false),
           ),
         diff =
           CodeDiffRenderParser.fromDeltas(
             listOf(
               DiffDelta(
-                filePath = "app/src/main/java/com/example/cursor/model/CodeDiffRenderModel.kt",
-                lineStart = 18,
+                filePath = "src/hooks/useTimer.ts",
+                lineStart = 42,
                 hunks =
                   listOf(
-                    "@@ render tokens @@",
-                    "- val rawDiff: String",
-                    "+ val lines: List<DiffLineRenderModel>",
-                    "+ val kind: DiffLineKind",
-                    "  val filePath: String",
+                    "@@ start timer @@",
+                    "  const start = () => {",
+                    "+   if (intervalRef.current) {",
+                    "+     clearInterval(intervalRef.current)",
+                    "+   }",
+                    "    setIsRunning(true)",
+                    "    intervalRef.current = setInterval(() => {",
+                    "      setElapsed((t) => t + 1000)",
+                    "    }, 1000)",
                   ),
               )
             )
           ),
-        files = listOf("CodeDiffRenderModel.kt", "CodeDiffCard.kt", "FakeFabricRepository.kt"),
+        files = listOf("app.tsx", "useTimer.ts", "TimerView.tsx"),
+        readyTitle = "Ready for review",
+        readyBody = "I can run tests or open a PR when you're ready.",
       ),
     handoff = null,
     artifact = null,
@@ -223,10 +290,12 @@ private fun handoffWorkbench(threadId: String) =
         targetDevice = "Ryan's MacBook Pro",
         items =
           listOf(
-            ChecklistItem("Thread context serialized", true),
-            ChecklistItem("Workspace tunnel available", true),
-            ChecklistItem("Awaiting user confirmation", false),
+            ChecklistItem("Found recap deck on your laptop\nrecap-one-pager.pdf - 412 KB", true),
+            ChecklistItem("Attached to 2 PM invite\nProduct Strategy Sync - Today, 2:00 PM", true),
+            ChecklistItem("Sent to Cursor Desktop\nReady to review and send", false),
           ),
+        primaryAction = "Continue on desktop",
+        sentAt = "Handoff sent at 10:12 AM",
       ),
     artifact = null,
     draft = null,
@@ -247,12 +316,18 @@ private fun artifactWorkbench(threadId: String) =
         name = "NeuroCards",
         subtitle = "Study smarter",
         progress = 0.45f,
-        previewLines =
+        questionLabel = "Question 3 of 12",
+        category = "Neuroanatomy",
+        question = "What is the function of the myelin sheath?",
+        choices =
           listOf(
-            "Question 3 of 12",
-            "What is the function of the myelin sheath?",
-            "B. Increase impulse conduction speed",
+            ArtifactChoice("A", "Generate action potentials", false),
+            ArtifactChoice("B", "Increase the speed of impulse conduction", true),
+            ArtifactChoice("C", "Produce neurotransmitters", false),
+            ArtifactChoice("D", "Store calcium ions", false),
           ),
+        footerStart = "Spaced repetition on",
+        footerEnd = "Streak: 4",
       ),
     draft = null,
   )
@@ -271,10 +346,30 @@ private fun writingWorkbench(threadId: String) =
     draft =
       DraftWorkbench(
         selectedTone = "Warm and gracious",
-        tones = listOf("Warm", "Confident", "PM concise"),
+        tones = listOf("Warm and gracious", "Confident and concise", "Product manager concise"),
         subject = "Thank you - Product Manager interview",
         body =
-          "Hi Jordan,\n\nThank you again for taking the time to speak with me yesterday. I enjoyed learning more about the team roadmap and customer impact.\n\nWarmly,\nAlex",
-        rationale = "Warm, appreciative, and concise enough for a mobile review pass.",
+          "Hi Jordan,\n\nThank you again for taking the time to speak with me yesterday. I enjoyed learning more about the team's roadmap and how you're approaching customer impact at scale.\n\nI'm even more excited about the opportunity to contribute and would love to stay in touch as the process moves forward.\n\nWarmly,\nAlex",
+        rationale = "Warm, appreciative tone builds rapport and reinforces enthusiasm while keeping the note concise and professional.",
       ),
   )
+
+private val WorkbenchKind.shortLabel: String
+  get() =
+    when (this) {
+      WorkbenchKind.Spec -> "Product plan"
+      WorkbenchKind.CodeReview -> "Diff"
+      WorkbenchKind.Handoff -> "Desktop"
+      WorkbenchKind.Artifact -> "Preview"
+      WorkbenchKind.Writing -> "Draft"
+    }
+
+internal val WorkbenchKind.label: String
+  get() =
+    when (this) {
+      WorkbenchKind.Spec -> "Spec"
+      WorkbenchKind.CodeReview -> "Code"
+      WorkbenchKind.Handoff -> "Handoff"
+      WorkbenchKind.Artifact -> "Artifact"
+      WorkbenchKind.Writing -> "Writing"
+    }

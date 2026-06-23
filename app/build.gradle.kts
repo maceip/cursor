@@ -2,11 +2,13 @@ plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
   alias(libs.plugins.kotlin.serialization)
+  alias(libs.plugins.screenshot)
 }
 
 android {
     namespace = "com.example.cursor"
     compileSdk = 36
+    experimentalProperties["android.experimental.enableScreenshotTest"] = true
     defaultConfig {
         applicationId = "com.example.cursor"
         minSdk = 24
@@ -58,11 +60,16 @@ dependencies {
   implementation(libs.androidx.lifecycle.viewmodel.compose)
 
   // Compose
+  implementation(libs.androidx.compose.animation)
   implementation(libs.androidx.compose.ui)
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.compose.material3)
+  implementation(libs.androidx.compose.material.icons.extended)
   // Tooling
   debugImplementation(libs.androidx.compose.ui.tooling)
+  screenshotTestImplementation(libs.androidx.compose.ui.tooling)
+  screenshotTestImplementation(libs.androidx.compose.ui.tooling.preview)
+  screenshotTestImplementation(libs.screenshot.validation.api)
   // Instrumented tests
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
