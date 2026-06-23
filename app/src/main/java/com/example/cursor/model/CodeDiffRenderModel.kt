@@ -75,7 +75,7 @@ object CodeDiffRenderParser {
     when {
       kind == DiffLineKind.Header -> rawLine
       rawLine.isEmpty() -> rawLine
-      rawLine.first() == '+' || rawLine.first() == '-' || rawLine.first() == ' ' -> rawLine.drop(1)
+      rawLine.first() == '+' || rawLine.first() == '-' || rawLine.first() == ' ' -> rawLine.drop(1).removePrefix(" ")
       else -> rawLine
     }
 }

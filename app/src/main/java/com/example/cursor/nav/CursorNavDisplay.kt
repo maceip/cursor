@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.example.cursor.data.FakeFabricRepository
@@ -30,7 +29,7 @@ fun CursorNavDisplay(
   val workbench by viewModel.activeWorkbench.collectAsStateWithLifecycle()
   val topology by viewModel.topology.collectAsStateWithLifecycle()
   val navigationRequest by viewModel.navigationRequests.collectAsStateWithLifecycle()
-  val backStack = rememberNavBackStack<NavKey>(ConversationKey(FakeFabricRepository.DefaultThreadId))
+  val backStack = rememberNavBackStack(ConversationKey(FakeFabricRepository.DefaultThreadId))
 
   LaunchedEffect(Unit) {
     if (backStack.none { it is WorkbenchKey }) {
@@ -75,7 +74,7 @@ fun CursorNavDisplay(
     NavDisplay(
       backStack = backStack,
       onBack = { backStack.removeLastOrNull() },
-      sceneStrategies = listOf(sceneStrategy),
+      sceneStrategy = sceneStrategy,
       entryProvider =
         cursorEntryProvider(
           conversation = conversation,

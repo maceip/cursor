@@ -3,7 +3,6 @@ package com.example.cursor.nav
 import androidx.compose.runtime.Composable
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
-import androidx.navigation3.runtime.get
 import androidx.navigation3.scene.Scene
 import androidx.navigation3.scene.SceneStrategy
 import androidx.navigation3.scene.SceneStrategyScope
@@ -19,14 +18,14 @@ class CursorFoldableSceneStrategy(
   override fun SceneStrategyScope<NavKey>.calculateScene(entries: List<NavEntry<NavKey>>): Scene<NavKey>? {
     if (!canShowTwoPane) return null
 
-    val workbenchEntry = entries.lastOrNull()?.takeIf { it.metadata[CursorSceneMetadata.PaneRoleKey] == PaneRole.Workbench } ?: return null
+    val workbenchEntry = entries.lastOrNull()?.takeIf { CursorSceneMetadata.paneRole(it.metadata) == PaneRole.Workbench } ?: return null
     val workbenchKey = workbenchEntry.contentKey as? WorkbenchKey ?: return null
     val conversationEntry =
       entries
         .dropLast(1)
         .findLast {
-          it.metadata[CursorSceneMetadata.PaneRoleKey] == PaneRole.Conversation &&
-            it.metadata[CursorSceneMetadata.ThreadIdKey] == workbenchKey.threadId
+          CursorSceneMetadata.paneRole(it.metadata) == PaneRole.Conversation &&
+            CursorSceneMetadata.threadId(it.metadata) == workbenchKey.threadId
         } ?: return null
     val conversationKey = conversationEntry.contentKey as? ConversationKey ?: return null
 

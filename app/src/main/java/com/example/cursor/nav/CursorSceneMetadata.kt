@@ -1,27 +1,27 @@
 package com.example.cursor.nav
 
-import androidx.navigation3.runtime.NavMetadataKey
-import androidx.navigation3.runtime.metadata
-
 enum class PaneRole {
   Conversation,
   Workbench,
 }
 
 object CursorSceneMetadata {
-  object PaneRoleKey : NavMetadataKey<PaneRole>
-
-  object ThreadIdKey : NavMetadataKey<String>
+  const val PaneRoleKey = "cursor.paneRole"
+  const val ThreadIdKey = "cursor.threadId"
 
   fun conversation(threadId: String) =
-    metadata {
-      put(PaneRoleKey, PaneRole.Conversation)
-      put(ThreadIdKey, threadId)
-    }
+    mapOf(
+      PaneRoleKey to PaneRole.Conversation,
+      ThreadIdKey to threadId,
+    )
 
   fun workbench(threadId: String) =
-    metadata {
-      put(PaneRoleKey, PaneRole.Workbench)
-      put(ThreadIdKey, threadId)
-    }
+    mapOf(
+      PaneRoleKey to PaneRole.Workbench,
+      ThreadIdKey to threadId,
+    )
+
+  fun paneRole(metadata: Map<String, Any>): PaneRole? = metadata[PaneRoleKey] as? PaneRole
+
+  fun threadId(metadata: Map<String, Any>): String? = metadata[ThreadIdKey] as? String
 }

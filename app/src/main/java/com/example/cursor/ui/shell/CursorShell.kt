@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -173,12 +176,15 @@ fun CursorTwoPaneLayout(
 @Preview(showBackground = true, widthDp = 390, heightDp = 820)
 @Composable
 private fun PhoneConversationLayoutPreview() {
-  val repository = FakeFabricRepository()
+  val repository = remember { FakeFabricRepository() }
+  val conversation by repository.conversation.collectAsState()
+  val workbench by repository.activeWorkbench.collectAsState()
+  val topology by repository.topology.collectAsState()
   CursorClaudeTheme {
     PhoneConversationLayout(
-      conversation = repository.conversation.value,
-      workbench = repository.activeWorkbench.value,
-      topology = repository.topology.value,
+      conversation = conversation,
+      workbench = workbench,
+      topology = topology,
       onWorkbenchSelected = {},
     )
   }
@@ -187,20 +193,23 @@ private fun PhoneConversationLayoutPreview() {
 @Preview(showBackground = true, widthDp = 900, heightDp = 640)
 @Composable
 private fun CursorTwoPaneLayoutPreview() {
-  val repository = FakeFabricRepository()
+  val repository = remember { FakeFabricRepository() }
+  val conversation by repository.conversation.collectAsState()
+  val workbench by repository.activeWorkbench.collectAsState()
+  val topology by repository.topology.collectAsState()
   CursorClaudeTheme {
     CursorTwoPaneLayout(
-      conversation = { ConversationPane(repository.conversation.value, onWorkbenchSelected = {}) },
+      conversation = { ConversationPane(conversation, onWorkbenchSelected = {}) },
       workbench = {
         WorkbenchPane(
-          workbench = repository.activeWorkbench.value,
-          topology = repository.topology.value,
+          workbench = workbench,
+          topology = topology,
           onWorkbenchSelected = {},
         )
       },
       composer = {
         ComposerDock(
-          composer = repository.conversation.value.composer,
+          composer = conversation.composer,
           modifier = Modifier.padding(horizontal = CursorSpacing.Xl, vertical = CursorSpacing.Lg),
         )
       },
