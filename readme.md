@@ -1,0 +1,7 @@
+# cursor android
+
+chat with cursor agents from android.
+
+links to a cursor pool, streams agent work, and shows chat, diffs, artifacts, handoff, and approvals.
+
+debug apks publish on every push as github prereleases.
