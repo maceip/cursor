@@ -1,0 +1,169 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "79032bcee58e8122679c013d4c80d5a6",
+    "entities": [
+      {
+        "tableName": "fabric_packets",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`packetId` TEXT NOT NULL, `sequenceNumber` INTEGER NOT NULL, `timestampMs` INTEGER NOT NULL, `hostId` TEXT NOT NULL, `workspaceId` TEXT NOT NULL, `agentRunId` TEXT NOT NULL, `payloadType` TEXT NOT NULL, `status` TEXT, `activeTool` TEXT, `textDelta` TEXT, `diffFilePath` TEXT, `diffLineStart` INTEGER, PRIMARY KEY(`packetId`))",
+        "fields": [
+          {
+            "fieldPath": "packetId",
+            "columnName": "packetId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sequenceNumber",
+            "columnName": "sequenceNumber",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestampMs",
+            "columnName": "timestampMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hostId",
+            "columnName": "hostId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "workspaceId",
+            "columnName": "workspaceId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "agentRunId",
+            "columnName": "agentRunId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payloadType",
+            "columnName": "payloadType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "activeTool",
+            "columnName": "activeTool",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "textDelta",
+            "columnName": "textDelta",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "diffFilePath",
+            "columnName": "diffFilePath",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "diffLineStart",
+            "columnName": "diffLineStart",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "packetId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_fabric_packets_sequenceNumber",
+            "unique": true,
+            "columnNames": [
+              "sequenceNumber"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_fabric_packets_sequenceNumber` ON `${TABLE_NAME}` (`sequenceNumber`)"
+          },
+          {
+            "name": "index_fabric_packets_hostId_workspaceId_agentRunId",
+            "unique": false,
+            "columnNames": [
+              "hostId",
+              "workspaceId",
+              "agentRunId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_fabric_packets_hostId_workspaceId_agentRunId` ON `${TABLE_NAME}` (`hostId`, `workspaceId`, `agentRunId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "fabric_diff_hunks",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`packetId` TEXT NOT NULL, `lineIndex` INTEGER NOT NULL, `line` TEXT NOT NULL, PRIMARY KEY(`packetId`, `lineIndex`), FOREIGN KEY(`packetId`) REFERENCES `fabric_packets`(`packetId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "packetId",
+            "columnName": "packetId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lineIndex",
+            "columnName": "lineIndex",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "line",
+            "columnName": "line",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "packetId",
+            "lineIndex"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_fabric_diff_hunks_packetId",
+            "unique": false,
+            "columnNames": [
+              "packetId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_fabric_diff_hunks_packetId` ON `${TABLE_NAME}` (`packetId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "fabric_packets",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "packetId"
+            ],
+            "referencedColumns": [
+              "packetId"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '79032bcee58e8122679c013d4c80d5a6')"
+    ]
+  }
+}

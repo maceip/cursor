@@ -1,7 +1,5 @@
 package com.example.cursor.data
 
-import com.example.cursor.model.AgentRunState
-import com.example.cursor.model.AgentStatus
 import com.example.cursor.model.ArtifactWorkbench
 import com.example.cursor.model.AttachmentChip
 import com.example.cursor.model.ChecklistItem
@@ -12,9 +10,10 @@ import com.example.cursor.model.ConversationMessage
 import com.example.cursor.model.ConversationState
 import com.example.cursor.model.DiffDelta
 import com.example.cursor.model.DraftWorkbench
+import com.example.cursor.model.FabricPacket
+import com.example.cursor.model.FabricTopologyProjector
 import com.example.cursor.model.FabricTopologyState
 import com.example.cursor.model.HandoffWorkbench
-import com.example.cursor.model.HostTopology
 import com.example.cursor.model.MessageAuthor
 import com.example.cursor.model.PromptToken
 import com.example.cursor.model.PromptTokenKind
@@ -23,12 +22,15 @@ import com.example.cursor.model.SpecWorkbench
 import com.example.cursor.model.WorkbenchKind
 import com.example.cursor.model.WorkbenchShortcut
 import com.example.cursor.model.WorkbenchState
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 
-class FakeFabricRepository(
-  private val threadId: String = DefaultThreadId,
+class InMemoryFabricRepository(
+  private val threadId: String = FabricDefaults.DefaultThreadId,
 ) : FabricRepository {
   private val _conversation = MutableStateFlow(seedConversation(threadId))
   override val conversation: StateFlow<ConversationState> = _conversation.asStateFlow()
@@ -36,19 +38,46 @@ class FakeFabricRepository(
   private val _activeWorkbench = MutableStateFlow(seedWorkbench(threadId, WorkbenchKind.Spec))
   override val activeWorkbench: StateFlow<WorkbenchState> = _activeWorkbench.asStateFlow()
 
-  private val _topology = MutableStateFlow(seedTopology())
+  private val _packets = MutableStateFlow(seedFabricPackets())
+  override val packets: StateFlow<List<FabricPacket>> = _packets.asStateFlow()
+
+  private val _topology = MutableStateFlow(FabricTopologyProjector.fromPackets(_packets.value))
   override val topology: StateFlow<FabricTopologyState> = _topology.asStateFlow()
+
+  override fun connect() = Unit
+
+  override fun disconnect() = Unit
 
   override fun openWorkbench(kind: WorkbenchKind) {
     _activeWorkbench.value = seedWorkbench(threadId, kind)
   }
 
-  companion object {
-    const val DefaultThreadId = "thread-cursor-mobile"
+  override fun submitUserMessage(text: String) {
+    val trimmed = text.trim()
+    if (trimmed.isEmpty()) return
+
+    val timestampMs = System.currentTimeMillis()
+    _conversation.value = _conversation.value.withUserMessage(trimmed, timestampMs)
   }
+
+  override fun approveInteraction(interactionId: String, approved: Boolean, messageOverride: String?) = Unit
+
+  override fun cancelAgentRun(agentRunId: String) = Unit
+
+  override fun packetsAfter(sequenceNumber: Long): Flow<List<FabricPacket>> =
+    packets.map { packets -> packets.filter { it.sequenceNumber > sequenceNumber } }
+
+  override suspend fun appendPacket(packet: FabricPacket) {
+    _packets.update { packets ->
+      (packets.filterNot { it.packetId == packet.packetId || it.sequenceNumber == packet.sequenceNumber } + packet)
+        .sortedBy { it.sequenceNumber }
+    }
+    _topology.value = FabricTopologyProjector.fromPackets(_packets.value)
+  }
+
 }
 
-private fun seedConversation(threadId: String) =
+internal fun seedConversation(threadId: String) =
   ConversationState(
     threadId = threadId,
     title = "Cursor mobile control tower",
@@ -96,43 +125,7 @@ private fun seedConversation(threadId: String) =
       ),
   )
 
-private fun seedTopology() =
-  FabricTopologyState(
-    latestSequenceNumber = 42,
-    hosts =
-      listOf(
-        HostTopology(
-          hostId = "ryans-macbook-pro",
-          workspaceId = "acme/mobile",
-          agentRuns =
-            listOf(
-              AgentRunState(
-                agentRunId = "composer-alpha",
-                status = AgentStatus.ExecutingTool,
-                activeTool = "gradle test",
-                tokenPreview = "Building Cursor shell and verifying render models...",
-                modifiedFiles = listOf("CursorNavDisplay.kt", "CodeDiffCard.kt"),
-              )
-            ),
-        ),
-        HostTopology(
-          hostId = "cursor-cloud-worker",
-          workspaceId = "shape-prototype",
-          agentRuns =
-            listOf(
-              AgentRunState(
-                agentRunId = "design-system",
-                status = AgentStatus.Thinking,
-                activeTool = null,
-                tokenPreview = "Preparing reusable components for foldable scenes.",
-                modifiedFiles = listOf("ComposerDock.kt", "WorkbenchCards.kt"),
-              )
-            ),
-        ),
-      ),
-  )
-
-private fun seedWorkbench(threadId: String, kind: WorkbenchKind): WorkbenchState =
+internal fun seedWorkbench(threadId: String, kind: WorkbenchKind): WorkbenchState =
   when (kind) {
     WorkbenchKind.Spec -> specWorkbench(threadId)
     WorkbenchKind.CodeReview -> codeReviewWorkbench(threadId)
@@ -160,7 +153,7 @@ private fun specWorkbench(threadId: String) =
           listOf(
             ChecklistItem("Keep phone and foldable on one back stack", true),
             ChecklistItem("Render workbench inline on narrow screens", false),
-            ChecklistItem("Swap fake repository for Room and gRPC later", false),
+            ChecklistItem("Connect Room ledger to the live fabric stream", false),
           ),
       ),
     codeReview = null,
@@ -202,7 +195,7 @@ private fun codeReviewWorkbench(threadId: String) =
               )
             )
           ),
-        files = listOf("CodeDiffRenderModel.kt", "CodeDiffCard.kt", "FakeFabricRepository.kt"),
+        files = listOf("CodeDiffRenderModel.kt", "CodeDiffCard.kt", "InMemoryFabricRepository.kt"),
       ),
     handoff = null,
     artifact = null,

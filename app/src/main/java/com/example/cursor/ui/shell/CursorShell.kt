@@ -19,7 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.cursor.data.FakeFabricRepository
+import com.example.cursor.data.InMemoryFabricRepository
 import com.example.cursor.model.ConversationState
 import com.example.cursor.model.FabricTopologyState
 import com.example.cursor.model.WorkbenchKind
@@ -46,6 +46,7 @@ fun PhoneConversationLayout(
   workbench: WorkbenchState,
   topology: FabricTopologyState,
   onWorkbenchSelected: (WorkbenchKind) -> Unit,
+  onMessageSubmitted: (String) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   Column(
@@ -62,7 +63,10 @@ fun PhoneConversationLayout(
       modifier = Modifier.weight(1f),
       inlineWorkbench = { WorkbenchBody(workbench, topology, onWorkbenchSelected) },
     )
-    ComposerDock(conversation.composer)
+    ComposerDock(
+      composer = conversation.composer,
+      onSubmit = onMessageSubmitted,
+    )
   }
 }
 
@@ -176,7 +180,7 @@ fun CursorTwoPaneLayout(
 @Preview(showBackground = true, widthDp = 390, heightDp = 820)
 @Composable
 private fun PhoneConversationLayoutPreview() {
-  val repository = remember { FakeFabricRepository() }
+  val repository = remember { InMemoryFabricRepository() }
   val conversation by repository.conversation.collectAsState()
   val workbench by repository.activeWorkbench.collectAsState()
   val topology by repository.topology.collectAsState()
@@ -186,6 +190,7 @@ private fun PhoneConversationLayoutPreview() {
       workbench = workbench,
       topology = topology,
       onWorkbenchSelected = {},
+      onMessageSubmitted = {},
     )
   }
 }
@@ -193,7 +198,7 @@ private fun PhoneConversationLayoutPreview() {
 @Preview(showBackground = true, widthDp = 900, heightDp = 640)
 @Composable
 private fun CursorTwoPaneLayoutPreview() {
-  val repository = remember { FakeFabricRepository() }
+  val repository = remember { InMemoryFabricRepository() }
   val conversation by repository.conversation.collectAsState()
   val workbench by repository.activeWorkbench.collectAsState()
   val topology by repository.topology.collectAsState()

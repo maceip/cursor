@@ -14,6 +14,7 @@ fun cursorEntryProvider(
   workbench: WorkbenchState,
   topology: FabricTopologyState,
   onWorkbenchSelected: (WorkbenchKind) -> Unit,
+  onMessageSubmitted: (String) -> Unit,
 ): (NavKey) -> NavEntry<NavKey> =
   { key: NavKey ->
     when (key) {
@@ -37,6 +38,7 @@ fun cursorEntryProvider(
         workbench = workbench.takeIf { it.kind == key.kind } ?: workbench,
         topology = topology,
         onWorkbenchSelected = onWorkbenchSelected,
+        onMessageSubmitted = onMessageSubmitted,
       )
         }
       else -> error("Unknown Cursor nav key: $key")

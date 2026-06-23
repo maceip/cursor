@@ -30,7 +30,7 @@ fun CodeDiffCard(
   Column(modifier, verticalArrangement = Arrangement.spacedBy(CursorSpacing.Md)) {
     WorkbenchCard(title = "Plan", eyebrow = "Code review") { Checklist(codeReview.plan) }
     codeReview.diff.files.forEach { file ->
-      WorkbenchCard(title = file.filePath, eyebrow = "Visual diff tokens") {
+      WorkbenchCard(title = file.filePath, eyebrow = "+${file.addedLineCount} / -${file.removedLineCount}") {
         Column(
           Modifier
             .fillMaxWidth()
@@ -61,8 +61,15 @@ private fun DiffLine(line: DiffLineRenderModel) {
       .padding(horizontal = 8.dp, vertical = 5.dp)
   ) {
     Text(
-      text = line.number?.toString().orEmpty(),
-      modifier = Modifier.width(34.dp),
+      text = line.oldNumber?.toString().orEmpty(),
+      modifier = Modifier.width(30.dp),
+      style = MaterialTheme.typography.labelMedium,
+      color = CursorColors.Muted,
+      fontFamily = FontFamily.Monospace,
+    )
+    Text(
+      text = line.newNumber?.toString().orEmpty(),
+      modifier = Modifier.width(30.dp),
       style = MaterialTheme.typography.labelMedium,
       color = CursorColors.Muted,
       fontFamily = FontFamily.Monospace,

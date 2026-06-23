@@ -1,5 +1,6 @@
 package com.example.cursor.ui.components
 
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,15 +16,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.cursor.model.ChecklistItem
 import com.example.cursor.model.FabricTopologyState
+import com.example.cursor.model.AgentStatus
 import com.example.cursor.model.WorkbenchKind
 import com.example.cursor.ui.theme.CursorColors
 import com.example.cursor.ui.theme.CursorShape
@@ -142,6 +146,18 @@ fun WorkbenchKindTabs(
 
 @Composable
 fun TopologyStrip(topology: FabricTopologyState, modifier: Modifier = Modifier) {
+  val view = LocalView.current
+  val awaitingApprovalRuns =
+    topology.hosts.flatMap { host ->
+      host.agentRuns.filter { it.status == AgentStatus.AwaitingApproval }.map { run -> "${host.hostId}:${run.agentRunId}" }
+    }
+
+  LaunchedEffect(awaitingApprovalRuns) {
+    if (awaitingApprovalRuns.isNotEmpty()) {
+      view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+    }
+  }
+
   WorkbenchCard(
     title = "Fabric topology",
     eyebrow = "seq ${topology.latestSequenceNumber}",

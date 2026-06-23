@@ -14,14 +14,20 @@ data class DiffFileRenderModel(
   val filePath: String,
   val lineStart: Int,
   val lines: List<DiffLineRenderModel>,
-)
+) {
+  val addedLineCount: Int = lines.count { it.kind == DiffLineKind.Addition }
+  val removedLineCount: Int = lines.count { it.kind == DiffLineKind.Deletion }
+}
 
 data class DiffLineRenderModel(
-  val number: Int?,
+  val oldNumber: Int?,
+  val newNumber: Int?,
   val marker: String,
   val text: String,
   val kind: DiffLineKind,
-)
+) {
+  val number: Int? = newNumber ?: oldNumber
+}
 
 enum class DiffLineKind {
   Header,
@@ -35,7 +41,8 @@ object CodeDiffRenderParser {
     CodeDiffRenderModel(
       files =
         deltas.map { delta ->
-          var currentLine = delta.lineStart
+          var oldLine = delta.lineStart
+          var newLine = delta.lineStart
           val lines =
             delta.hunks.map { rawLine ->
               val kind =
@@ -45,15 +52,29 @@ object CodeDiffRenderParser {
                   rawLine.startsWith("-") -> DiffLineKind.Deletion
                   else -> DiffLineKind.Context
                 }
-              val number =
+              if (kind == DiffLineKind.Header) {
+                parseHeaderStart(rawLine)?.let { (oldStart, newStart) ->
+                  oldLine = oldStart
+                  newLine = newStart
+                }
+              }
+              val oldNumber =
                 when (kind) {
                   DiffLineKind.Header -> null
-                  DiffLineKind.Deletion -> currentLine
-                  DiffLineKind.Addition,
-                  DiffLineKind.Context -> currentLine++
+                  DiffLineKind.Addition -> null
+                  DiffLineKind.Deletion -> oldLine++
+                  DiffLineKind.Context -> oldLine++
+                }
+              val newNumber =
+                when (kind) {
+                  DiffLineKind.Header -> null
+                  DiffLineKind.Deletion -> null
+                  DiffLineKind.Addition -> newLine++
+                  DiffLineKind.Context -> newLine++
                 }
               DiffLineRenderModel(
-                number = number,
+                oldNumber = oldNumber,
+                newNumber = newNumber,
                 marker = markerFor(rawLine, kind),
                 text = textFor(rawLine, kind),
                 kind = kind,
@@ -78,4 +99,13 @@ object CodeDiffRenderParser {
       rawLine.first() == '+' || rawLine.first() == '-' || rawLine.first() == ' ' -> rawLine.drop(1).removePrefix(" ")
       else -> rawLine
     }
+
+  private fun parseHeaderStart(header: String): Pair<Int, Int>? {
+    val parts = header.split(" ")
+    val oldPart = parts.firstOrNull { it.startsWith("-") } ?: return null
+    val newPart = parts.firstOrNull { it.startsWith("+") } ?: return null
+    val oldStart = oldPart.removePrefix("-").substringBefore(",").toIntOrNull() ?: return null
+    val newStart = newPart.removePrefix("+").substringBefore(",").toIntOrNull() ?: return null
+    return oldStart to newStart
+  }
 }

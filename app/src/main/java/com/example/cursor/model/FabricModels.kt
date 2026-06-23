@@ -29,6 +29,7 @@ enum class AgentStatus {
 data class FabricPacket(
   val packetId: String,
   val sequenceNumber: Long,
+  val timestampMs: Long,
   val hostId: String,
   val workspaceId: String,
   val agentRunId: String,
