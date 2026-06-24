@@ -25,6 +25,10 @@
 </pre>
 </div>
 
+<div align="center">
+<img src="docs/assets/cursor-launch-top-half.gif" width="360" alt="cursor android demo">
+</div>
+
 # cursor android
 
 chat with cursor agents from android.
