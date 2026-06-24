@@ -101,6 +101,9 @@ class CursorControlPlaneRepository(
           val info = apiClient.validateKey(trimmed)
           validateKind(kind, info)
           authStore.saveToken(kind, trimmed)
+          dao.clearRemoteCache()
+          selectedAgentId.value = null
+          selectedRunId.value = null
           dao.upsertAccount(info.toEntity(kind, linked = true, now = System.currentTimeMillis()))
           refreshAll()
         }
@@ -113,7 +116,11 @@ class CursorControlPlaneRepository(
     scope.launch {
       authStore.clearToken(kind)
       dao.deleteAccount(kind.storageKey)
+      dao.clearRemoteCache()
+      selectedAgentId.value = null
+      selectedRunId.value = null
       progress.value = progress.value.copy(errorMessage = null)
+      refreshAll()
     }
   }
 
@@ -190,9 +197,25 @@ class CursorControlPlaneRepository(
     val run = dao.run(runId) ?: return
     apiClient.cancelRun(token, run.agentId, runId)
     val refreshed =
-      apiClient.getRun(token, run.agentId, runId)?.toEntity(now = System.currentTimeMillis())
+      apiClient.getRun(token, run.agentId, runId)?.toEntity(now = System.currentTimeMillis(), previous = run)
         ?: run.copy(status = "CANCELLED", terminal = true, lastSyncedAtMs = System.currentTimeMillis())
     dao.upsertRuns(listOf(refreshed))
+  }
+
+  suspend fun respondToInteraction(interactionId: String, approved: Boolean, messageOverride: String?) {
+    val token = authStore.token(CursorAccountKind.User) ?: throw CursorApiException("Link a user API key before responding to approvals.")
+    val run = state.value.selectedRun ?: throw CursorApiException("Select a live Cursor run before responding to approvals.")
+    apiClient.respondToInteraction(
+      token = token,
+      agentId = run.agentId,
+      runId = run.id,
+      interactionId = interactionId,
+      approved = approved,
+      messageOverride = messageOverride,
+    )
+    val now = System.currentTimeMillis()
+    val refreshed = apiClient.getRun(token, run.agentId, run.id)?.toEntity(now = now, previous = dao.run(run.id))
+    if (refreshed != null) dao.upsertRuns(listOf(refreshed))
   }
 
   suspend fun recordStreamEvent(target: CursorRunStreamTarget, event: CursorStreamEvent) {
@@ -202,6 +225,7 @@ class CursorControlPlaneRepository(
       when (event.type) {
         "status", "result" -> data.optString("status", current.status)
         "error" -> "ERROR"
+        "done" -> "FINISHED"
         else -> current.status
       }
     val resultText =
@@ -245,12 +269,17 @@ class CursorControlPlaneRepository(
 
   private suspend fun refreshUserPlane(now: Long) {
     val token = authStore.token(CursorAccountKind.User) ?: return
-    runCatching { dao.upsertModels(apiClient.listModels(token).map { it.toEntity(now) }) }
+    runCatching { dao.replaceModels(apiClient.listModels(token).map { it.toEntity(now) }) }
       .onFailure { progress.value = progress.value.copy(errorMessage = it.userMessage()) }
-    runCatching { dao.upsertRepositories(apiClient.listRepositories(token).map { it.toEntity(now) }) }
+    runCatching { dao.replaceRepositories(apiClient.listRepositories(token).map { it.toEntity(now) }) }
     val agents = apiClient.listAgents(token).map { it.toEntity(now) }
-    dao.upsertAgents(agents)
-    if (selectedAgentId.value == null) selectedAgentId.value = agents.firstOrNull()?.id
+    dao.replaceAgents(agents)
+    val agentIds = agents.map { it.id }.toSet()
+    val currentAgentId = selectedAgentId.value
+    if (currentAgentId == null || currentAgentId !in agentIds) {
+      selectedAgentId.value = agents.firstOrNull()?.id
+      selectedRunId.value = null
+    }
     agents.take(8).forEach { agent -> refreshAgentDetails(agent.id) }
   }
 
@@ -258,21 +287,29 @@ class CursorControlPlaneRepository(
     val token = authStore.token(CursorAccountKind.User) ?: return
     val now = System.currentTimeMillis()
     runCatching {
-      val runs = apiClient.listRuns(token, agentId).map { it.toEntity(now) }
-      dao.upsertRuns(runs)
-      if (selectedAgentId.value == agentId && selectedRunId.value == null) selectedRunId.value = runs.firstOrNull()?.id
-      dao.upsertArtifacts(apiClient.listArtifacts(token, agentId).map { it.toEntity(now) })
-      dao.upsertUsage(apiClient.usage(token, agentId).map { it.toEntity(now) })
+      val previousRuns = dao.runsForAgent(agentId).associateBy { it.id }
+      val runs = apiClient.listRuns(token, agentId).map { it.toEntity(now, previousRuns[it.id]) }
+      dao.replaceRunsForAgent(agentId, runs)
+      val runIds = runs.map { it.id }.toSet()
+      val currentRunId = selectedRunId.value
+      if (selectedAgentId.value == agentId && (currentRunId == null || currentRunId !in runIds)) {
+        selectedRunId.value = runs.firstOrNull()?.id
+      }
+      dao.replaceArtifactsForAgent(agentId, apiClient.listArtifacts(token, agentId).map { it.toEntity(now) })
+      dao.replaceUsageForAgent(agentId, apiClient.usage(token, agentId).map { it.toEntity(now) })
     }.onFailure { failure -> progress.value = progress.value.copy(errorMessage = failure.userMessage()) }
   }
 
   private suspend fun refreshPoolPlane(now: Long) {
     val token = authStore.token(CursorAccountKind.ServiceAccount) ?: return
     val pending = apiClient.pendingPoolRequests(token).map { it.toEntity(now) }
-    dao.upsertPendingRequests(pending)
     val summary = apiClient.workerSummary(token)
-    dao.upsertWorkerSummary(summary.toEntity(pendingCount = pending.size, now = now))
-    dao.upsertWorkers(apiClient.listWorkers(token).map { it.toEntity(now) })
+    val workers = apiClient.listWorkers(token).map { it.toEntity(now) }
+    dao.replacePoolPlane(
+      summary = summary.toEntity(pendingCount = pending.size, now = now),
+      workers = workers,
+      pendingRequests = pending,
+    )
   }
 
   private suspend fun createAgentInternal(request: CursorCreateAgentRequest) {
@@ -351,7 +388,7 @@ class CursorControlPlaneRepository(
       lastSyncedAtMs = now,
     )
 
-  private fun CursorRemoteRun.toEntity(now: Long): CursorRunEntity =
+  private fun CursorRemoteRun.toEntity(now: Long, previous: CursorRunEntity? = null): CursorRunEntity =
     CursorRunEntity(
       id = id,
       agentId = agentId,
@@ -359,8 +396,8 @@ class CursorControlPlaneRepository(
       result = result,
       createdAt = createdAt,
       updatedAt = updatedAt,
-      lastEventId = null,
-      streamRetentionSeconds = null,
+      lastEventId = previous?.lastEventId,
+      streamRetentionSeconds = previous?.streamRetentionSeconds,
       terminal = terminal,
       lastSyncedAtMs = now,
     )

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import org.json.JSONObject
+import kotlin.coroutines.cancellation.CancellationException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CursorFabricBridgeClient(
@@ -32,14 +33,23 @@ class CursorFabricBridgeClient(
           apiClient
             .streamRun(token, target)
             .catch { failure ->
+              if (failure is CancellationException) throw failure
               if ((failure as? CursorApiException)?.statusCode == 410) {
                 controlPlane.refreshRunAfterStreamExpired(target)
-                controlPlane.recordStreamEvent(
-                  target,
+                emit(
                   CursorStreamEvent(
                     id = null,
                     type = "error",
                     data = JSONObject().put("message", "Stream expired; refreshed run state from Cursor.").toString(),
+                    retentionSeconds = null,
+                  ),
+                )
+              } else {
+                emit(
+                  CursorStreamEvent(
+                    id = null,
+                    type = "error",
+                    data = JSONObject().put("message", CursorRedactor.redact(failure.message ?: "Cursor stream failed.")).toString(),
                     retentionSeconds = null,
                   ),
                 )
@@ -59,7 +69,12 @@ class CursorFabricBridgeClient(
     when (val payload = signal.payload) {
       is FabricUpstreamPayload.UserMessage -> controlPlane.createRunFromComposer(payload.text)
       is FabricUpstreamPayload.CancelTask -> controlPlane.cancelRun(payload.agentRunId)
-      is FabricUpstreamPayload.ActionApproval -> Unit
+      is FabricUpstreamPayload.ActionApproval ->
+        controlPlane.respondToInteraction(
+          interactionId = payload.interactionId,
+          approved = payload.approved,
+          messageOverride = payload.messageOverride,
+        )
     }
   }
 

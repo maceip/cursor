@@ -16,10 +16,25 @@ class RoomFabricRepositoryTest {
       RoomFabricRepository(
         ledger = MemoryLedger(),
         scope = backgroundScope,
+        seedOnEmpty = true,
       )
 
     assertEquals(42L, repository.topology.value.latestSequenceNumber)
     assertTrue(repository.topology.value.hosts.isNotEmpty())
+  }
+
+  @Test
+  fun productionDefaultStartsWithoutDemoData() = runTest {
+    val repository =
+      RoomFabricRepository(
+        ledger = MemoryLedger(),
+        scope = backgroundScope,
+      )
+
+    assertEquals(0L, repository.topology.value.latestSequenceNumber)
+    assertTrue(repository.topology.value.hosts.isEmpty())
+    assertTrue(repository.conversation.value.messages.isEmpty())
+    assertEquals("Cursor", repository.conversation.value.title)
   }
 
   private class MemoryLedger : FabricEventLedger {

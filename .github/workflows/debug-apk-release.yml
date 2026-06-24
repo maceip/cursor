@@ -36,9 +36,18 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build debug APK
+      - name: Make Gradle executable
         run: |
           chmod +x ./gradlew
+
+      - name: Run unit tests
+        run: ./gradlew --no-daemon :app:testDebugUnitTest
+
+      - name: Run lint
+        run: ./gradlew --no-daemon :app:lintDebug
+
+      - name: Build debug APK
+        run: |
           ./gradlew --no-daemon :app:assembleDebug
 
       - name: Prepare release metadata

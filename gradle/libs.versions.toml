@@ -14,8 +14,6 @@ kotlin = "2.3.20"
 ksp = "2.3.9"
 nav3Core = "1.0.1"
 lifecycleViewmodelNav3 = "2.10.0"
-protobuf = "4.35.1"
-protobufGradlePlugin = "0.10.0"
 room = "2.8.4"
 window = "1.5.1"
 screenshot = "0.0.1-alpha15"
@@ -41,7 +39,6 @@ androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
 androidx-window = { module = "androidx.window:window", version.ref = "window" }
-protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "protobuf" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidxTest" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExt" }
 androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "androidxTestEspresso" }
@@ -57,5 +54,4 @@ android-application = { id = "com.android.application", version.ref = "androidGr
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-protobuf = { id = "com.google.protobuf", version.ref = "protobufGradlePlugin" }
 screenshot = { id = "com.android.compose.screenshot", version.ref = "screenshot" }

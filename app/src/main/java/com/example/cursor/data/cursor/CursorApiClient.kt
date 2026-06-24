@@ -61,10 +61,10 @@ class CursorApiClient(
     requestJson(token = token, path = "/v1/agents/${agentId.encodePath()}/runs?limit=$limit")
       .optJSONArray("items")
       .orEmptyObjects()
-      .mapNotNull(::parseRun)
+      .mapNotNull { parseRun(it, fallbackAgentId = agentId) }
 
   suspend fun getRun(token: String, agentId: String, runId: String): CursorRemoteRun? =
-    parseRun(requestJson(token = token, path = "/v1/agents/${agentId.encodePath()}/runs/${runId.encodePath()}"))
+    parseRun(requestJson(token = token, path = "/v1/agents/${agentId.encodePath()}/runs/${runId.encodePath()}"), fallbackAgentId = agentId)
 
   suspend fun createAgent(token: String, request: CursorCreateAgentRequest): CursorCreateAgentResult {
     val body =
@@ -87,17 +87,38 @@ class CursorApiClient(
 
     val json = requestJson(token = token, path = "/v1/agents", method = "POST", body = body)
     val agent = json.optJSONObject("agent")?.let(::parseAgent) ?: throw CursorApiException("Create agent response omitted agent")
-    return CursorCreateAgentResult(agent = agent, run = json.optJSONObject("run")?.let(::parseRun))
+    return CursorCreateAgentResult(agent = agent, run = json.optJSONObject("run")?.let { parseRun(it, fallbackAgentId = agent.id) })
   }
 
   suspend fun createRun(token: String, agentId: String, prompt: String): CursorRemoteRun {
     val body = JSONObject().put("prompt", JSONObject().put("text", prompt))
     val json = requestJson(token = token, path = "/v1/agents/${agentId.encodePath()}/runs", method = "POST", body = body)
-    return parseRun(json) ?: json.optJSONObject("run")?.let(::parseRun) ?: throw CursorApiException("Create run response omitted run")
+    return parseRun(json, fallbackAgentId = agentId)
+      ?: json.optJSONObject("run")?.let { parseRun(it, fallbackAgentId = agentId) }
+      ?: throw CursorApiException("Create run response omitted run")
   }
 
   suspend fun cancelRun(token: String, agentId: String, runId: String) {
     requestJson(token = token, path = "/v1/agents/${agentId.encodePath()}/runs/${runId.encodePath()}/cancel", method = "POST")
+  }
+
+  suspend fun respondToInteraction(
+    token: String,
+    agentId: String,
+    runId: String,
+    interactionId: String,
+    approved: Boolean,
+    messageOverride: String?,
+  ) {
+    val body = JSONObject().put("approved", approved)
+    messageOverride?.takeIf { it.isNotBlank() }?.let { body.put("messageOverride", it) }
+    requestJson(
+      token = token,
+      path =
+        "/v1/agents/${agentId.encodePath()}/runs/${runId.encodePath()}/interactions/${interactionId.encodePath()}/respond",
+      method = "POST",
+      body = body,
+    )
   }
 
   suspend fun archiveAgent(token: String, agentId: String) {
@@ -266,12 +287,12 @@ class CursorApiClient(
     )
   }
 
-  private fun parseRun(item: JSONObject): CursorRemoteRun? {
+  private fun parseRun(item: JSONObject, fallbackAgentId: String? = null): CursorRemoteRun? {
     val id = item.optStringOrNull("id") ?: return null
     val status = item.optString("status", "UNKNOWN")
     return CursorRemoteRun(
       id = id,
-      agentId = item.optString("agentId"),
+      agentId = item.optStringOrNull("agentId") ?: fallbackAgentId.orEmpty(),
       status = status,
       result = item.optStringOrNull("result") ?: item.optStringOrNull("text"),
       createdAt = item.optStringOrNull("createdAt"),
@@ -289,20 +310,23 @@ class CursorApiClient(
   ): JSONObject =
     kotlinx.coroutines.withContext(Dispatchers.IO) {
       val connection = openConnection(token, path, method, accept)
-      if (body != null) {
-        connection.doOutput = true
-        connection.setRequestProperty("Content-Type", "application/json")
-        OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { writer -> writer.write(body.toString()) }
-      }
+      try {
+        if (body != null) {
+          connection.doOutput = true
+          connection.setRequestProperty("Content-Type", "application/json")
+          OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { writer -> writer.write(body.toString()) }
+        }
 
-      val code = connection.responseCode
-      if (code !in 200..299) {
-        throw CursorApiException(readError(connection, code), code)
-      }
+        val code = connection.responseCode
+        if (code !in 200..299) {
+          throw CursorApiException(readError(connection, code), code)
+        }
 
-      val text = connection.inputStream.readUtf8()
-      connection.disconnect()
-      if (text.isBlank()) JSONObject() else JSONObject(text)
+        val text = connection.inputStream.readUtf8()
+        if (text.isBlank()) JSONObject() else JSONObject(text)
+      } finally {
+        connection.disconnect()
+      }
     }
 
   private fun openConnection(

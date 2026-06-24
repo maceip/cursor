@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.example.cursor.data.local.entity.CursorAccountEntity
 import com.example.cursor.data.local.entity.CursorAgentEntity
 import com.example.cursor.data.local.entity.CursorArtifactEntity
@@ -61,6 +62,9 @@ interface CursorControlPlaneDao {
   @Query("SELECT * FROM cursor_runs WHERE id = :runId")
   suspend fun run(runId: String): CursorRunEntity?
 
+  @Query("SELECT * FROM cursor_runs WHERE agentId = :agentId ORDER BY updatedAt DESC, createdAt DESC")
+  suspend fun runsForAgent(agentId: String): List<CursorRunEntity>
+
   @Query("SELECT * FROM cursor_sync_cursors WHERE key = :key")
   suspend fun syncCursor(key: String): CursorSyncCursorEntity?
 
@@ -99,4 +103,126 @@ interface CursorControlPlaneDao {
 
   @Query("DELETE FROM cursor_accounts WHERE accountType = :accountType")
   suspend fun deleteAccount(accountType: String)
+
+  @Query("DELETE FROM cursor_models")
+  suspend fun clearModels()
+
+  @Query("DELETE FROM cursor_repositories")
+  suspend fun clearRepositories()
+
+  @Query("DELETE FROM cursor_agents")
+  suspend fun clearAgents()
+
+  @Query("DELETE FROM cursor_runs")
+  suspend fun clearRuns()
+
+  @Query("DELETE FROM cursor_runs WHERE agentId = :agentId")
+  suspend fun clearRunsForAgent(agentId: String)
+
+  @Query("DELETE FROM cursor_runs WHERE agentId NOT IN (:agentIds)")
+  suspend fun clearRunsForStaleAgents(agentIds: List<String>)
+
+  @Query("DELETE FROM cursor_worker_summary")
+  suspend fun clearWorkerSummary()
+
+  @Query("DELETE FROM cursor_workers")
+  suspend fun clearWorkers()
+
+  @Query("DELETE FROM cursor_pending_requests")
+  suspend fun clearPendingRequests()
+
+  @Query("DELETE FROM cursor_artifacts")
+  suspend fun clearArtifacts()
+
+  @Query("DELETE FROM cursor_artifacts WHERE agentId = :agentId")
+  suspend fun clearArtifactsForAgent(agentId: String)
+
+  @Query("DELETE FROM cursor_artifacts WHERE agentId NOT IN (:agentIds)")
+  suspend fun clearArtifactsForStaleAgents(agentIds: List<String>)
+
+  @Query("DELETE FROM cursor_usage")
+  suspend fun clearUsage()
+
+  @Query("DELETE FROM cursor_usage WHERE agentId = :agentId")
+  suspend fun clearUsageForAgent(agentId: String)
+
+  @Query("DELETE FROM cursor_usage WHERE agentId NOT IN (:agentIds)")
+  suspend fun clearUsageForStaleAgents(agentIds: List<String>)
+
+  @Query("DELETE FROM cursor_sync_cursors")
+  suspend fun clearSyncCursors()
+
+  @Transaction
+  suspend fun replaceModels(models: List<CursorModelEntity>) {
+    clearModels()
+    upsertModels(models)
+  }
+
+  @Transaction
+  suspend fun replaceRepositories(repositories: List<CursorRepositoryEntity>) {
+    clearRepositories()
+    upsertRepositories(repositories)
+  }
+
+  @Transaction
+  suspend fun replaceAgents(agents: List<CursorAgentEntity>) {
+    clearAgents()
+    upsertAgents(agents)
+    val agentIds = agents.map { it.id }
+    if (agentIds.isEmpty()) {
+      clearRuns()
+      clearArtifacts()
+      clearUsage()
+    } else {
+      clearRunsForStaleAgents(agentIds)
+      clearArtifactsForStaleAgents(agentIds)
+      clearUsageForStaleAgents(agentIds)
+    }
+  }
+
+  @Transaction
+  suspend fun replaceRunsForAgent(agentId: String, runs: List<CursorRunEntity>) {
+    clearRunsForAgent(agentId)
+    upsertRuns(runs)
+  }
+
+  @Transaction
+  suspend fun replaceArtifactsForAgent(agentId: String, artifacts: List<CursorArtifactEntity>) {
+    clearArtifactsForAgent(agentId)
+    upsertArtifacts(artifacts)
+  }
+
+  @Transaction
+  suspend fun replaceUsageForAgent(agentId: String, usage: List<CursorUsageEntity>) {
+    clearUsageForAgent(agentId)
+    upsertUsage(usage)
+  }
+
+  @Transaction
+  suspend fun replacePoolPlane(
+    summary: CursorWorkerSummaryEntity,
+    workers: List<CursorWorkerEntity>,
+    pendingRequests: List<CursorPendingRequestEntity>,
+  ) {
+    clearWorkerSummary()
+    clearWorkers()
+    clearPendingRequests()
+    upsertWorkerSummary(summary)
+    upsertWorkers(workers)
+    upsertPendingRequests(pendingRequests)
+  }
+
+  @Transaction
+  suspend fun clearRemoteCache() {
+    clearModels()
+    clearRepositories()
+    clearAgents()
+    clearRuns()
+    clearWorkerSummary()
+    clearWorkers()
+    clearPendingRequests()
+    clearArtifacts()
+    clearUsage()
+    clearSyncCursors()
+  }
 }
