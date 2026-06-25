@@ -21,20 +21,13 @@ fun MainNavigation(windowLayoutInfo: Flow<WindowLayoutInfo>) {
   val appViewModel: CursorAppViewModel = viewModel { CursorAppViewModel(context) }
   val shellViewModel: CursorShellViewModel =
     viewModel(key = "cursor-shell") { CursorShellViewModel.roomBacked(context, appViewModel.fabricStreamClient) }
-  val demoShellViewModel: CursorShellViewModel = viewModel(key = "cursor-demo-shell") { CursorShellViewModel() }
   val state by appViewModel.state.collectAsStateWithLifecycle()
 
-  if (!state.anyLinked && BuildConfig.DEBUG) {
-    CursorNavDisplay(
-      windowLayoutInfo = windowLayoutInfo,
-      modifier = Modifier.safeDrawingPadding(),
-      providedViewModel = demoShellViewModel,
-      autoDemo = true,
-    )
-  } else if (!state.anyLinked) {
+  if (!state.anyLinked) {
     CursorOnboardingScreen(
       state = state,
       onLinkKey = appViewModel::linkKey,
+      onContinueWithWeb = appViewModel::continueWithWeb,
       modifier = Modifier.safeDrawingPadding(),
     )
   } else {
@@ -42,6 +35,7 @@ fun MainNavigation(windowLayoutInfo: Flow<WindowLayoutInfo>) {
       state = state,
       onRefresh = appViewModel::refresh,
       onLinkKey = appViewModel::linkKey,
+      onContinueWithWeb = appViewModel::continueWithWeb,
       onUnlink = appViewModel::unlink,
       onSelectAgent = appViewModel::selectAgent,
       onSelectRun = appViewModel::selectRun,

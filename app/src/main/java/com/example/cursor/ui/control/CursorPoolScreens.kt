@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -28,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.cursor.data.cursor.CursorAccountKind
@@ -48,10 +50,12 @@ import com.example.cursor.ui.theme.CursorSpacing
 fun CursorOnboardingScreen(
   state: CursorControlPlaneState,
   onLinkKey: (CursorAccountKind, String) -> Unit,
+  onContinueWithWeb: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   var userKey by rememberSaveable { mutableStateOf("") }
   var serviceKey by rememberSaveable { mutableStateOf("") }
+  val uriHandler = LocalUriHandler.current
 
   LazyColumn(
     modifier =
@@ -62,8 +66,29 @@ fun CursorOnboardingScreen(
     verticalArrangement = Arrangement.spacedBy(CursorSpacing.Lg),
   ) {
     item {
-      WorkbenchCard(title = "Link Cursor", eyebrow = "Pixel Fold control plane") {
-        Text("Connect a user key for agents and a service-account key for your self-hosted pool.", color = CursorColors.Muted)
+      WorkbenchCard(title = "Set up Cursor", eyebrow = "Connect your account") {
+        Text(
+          "This build starts empty now. Link your Cursor account from your phone to load real agents, repositories, runs, and artifacts.",
+          color = CursorColors.Muted,
+        )
+        Text(
+          "If you are already signed in to Cursor on the web, you can open Cursor in your browser and mark setup complete now. Paste a user API key later when you want this app to sync agents directly.",
+          color = CursorColors.Muted,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(CursorSpacing.Sm)) {
+          Button(
+            onClick = {
+              uriHandler.openUri(CursorDashboardUrl)
+              onContinueWithWeb()
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = CursorColors.Ink),
+          ) {
+            Text("Use Cursor web")
+          }
+          OutlinedButton(onClick = { uriHandler.openUri(CursorApiKeysUrl) }) {
+            Text("Get API key")
+          }
+        }
         CredentialField(
           label = "User API key",
           value = userKey,
@@ -73,7 +98,7 @@ fun CursorOnboardingScreen(
           onSubmit = { onLinkKey(CursorAccountKind.User, userKey) },
         )
         CredentialField(
-          label = "Pool service-account key",
+          label = "Pool service-account key (optional)",
           value = serviceKey,
           onValueChange = { serviceKey = it },
           buttonText = "Link pool",
@@ -91,6 +116,7 @@ fun CursorPoolHome(
   state: CursorControlPlaneState,
   onRefresh: () -> Unit,
   onLinkKey: (CursorAccountKind, String) -> Unit,
+  onContinueWithWeb: () -> Unit,
   onUnlink: (CursorAccountKind) -> Unit,
   onSelectAgent: (String) -> Unit,
   onSelectRun: (String) -> Unit,
@@ -113,6 +139,7 @@ fun CursorPoolHome(
           state = state,
           onRefresh = onRefresh,
           onLinkKey = onLinkKey,
+          onContinueWithWeb = onContinueWithWeb,
           onUnlink = onUnlink,
           onSelectAgent = onSelectAgent,
           onSelectRun = onSelectRun,
@@ -131,6 +158,7 @@ fun CursorPoolHome(
           state = state,
           onRefresh = onRefresh,
           onLinkKey = onLinkKey,
+          onContinueWithWeb = onContinueWithWeb,
           onUnlink = onUnlink,
           onSelectAgent = onSelectAgent,
           onSelectRun = onSelectRun,
@@ -152,6 +180,7 @@ private fun PoolDashboard(
   state: CursorControlPlaneState,
   onRefresh: () -> Unit,
   onLinkKey: (CursorAccountKind, String) -> Unit,
+  onContinueWithWeb: () -> Unit,
   onUnlink: (CursorAccountKind) -> Unit,
   onSelectAgent: (String) -> Unit,
   onSelectRun: (String) -> Unit,
@@ -189,7 +218,7 @@ private fun PoolDashboard(
       }
     }
 
-    item { AccountCard(state = state, onLinkKey = onLinkKey, onUnlink = onUnlink) }
+    item { AccountCard(state = state, onLinkKey = onLinkKey, onContinueWithWeb = onContinueWithWeb, onUnlink = onUnlink) }
     item { CreateAgentCard(state = state, onCreateAgent = onCreateAgent) }
 
     item {
@@ -300,20 +329,37 @@ private fun CredentialField(
 private fun AccountCard(
   state: CursorControlPlaneState,
   onLinkKey: (CursorAccountKind, String) -> Unit,
+  onContinueWithWeb: () -> Unit,
   onUnlink: (CursorAccountKind) -> Unit,
 ) {
   var userKey by rememberSaveable { mutableStateOf("") }
   var serviceKey by rememberSaveable { mutableStateOf("") }
+  val uriHandler = LocalUriHandler.current
   WorkbenchCard(title = "Accounts", eyebrow = "Cursor API") {
     state.accounts.forEach { account ->
       Row(horizontalArrangement = Arrangement.spacedBy(CursorSpacing.Sm)) {
         CursorChip("${account.apiKeyName} - ${account.principal}", selected = true, modifier = Modifier.weight(1f))
-        Button(onClick = { onUnlink(if (account.isServiceAccount) CursorAccountKind.ServiceAccount else CursorAccountKind.User) }) {
+        Button(onClick = { onUnlink(account.kind) }) {
           Text("Unlink")
         }
       }
     }
     if (!state.userLinked) {
+      Row(horizontalArrangement = Arrangement.spacedBy(CursorSpacing.Sm)) {
+        OutlinedButton(onClick = { uriHandler.openUri(CursorApiKeysUrl) }) {
+          Text("Get API key")
+        }
+        if (!state.webLinked) {
+          OutlinedButton(
+            onClick = {
+              uriHandler.openUri(CursorDashboardUrl)
+              onContinueWithWeb()
+            },
+          ) {
+            Text("Use web")
+          }
+        }
+      }
       CredentialField(
         label = "User API key",
         value = userKey,
@@ -498,3 +544,14 @@ private fun ArtifactRow(artifact: CursorArtifactEntity, onHydrate: () -> Unit) {
     }
   }
 }
+
+private val com.example.cursor.data.local.entity.CursorAccountEntity.kind: CursorAccountKind
+  get() =
+    when (accountType) {
+      CursorAccountKind.ServiceAccount.storageKey -> CursorAccountKind.ServiceAccount
+      CursorAccountKind.Web.storageKey -> CursorAccountKind.Web
+      else -> CursorAccountKind.User
+    }
+
+private const val CursorDashboardUrl = "https://cursor.com/dashboard"
+private const val CursorApiKeysUrl = "https://cursor.com/dashboard/api-keys"

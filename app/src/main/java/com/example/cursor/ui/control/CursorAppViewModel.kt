@@ -33,6 +33,10 @@ class CursorAppViewModel(context: Context) : ViewModel() {
     controlPlane.linkKey(kind, token)
   }
 
+  fun continueWithWeb() {
+    controlPlane.continueWithWeb()
+  }
+
   fun unlink(kind: CursorAccountKind) {
     controlPlane.unlink(kind)
   }

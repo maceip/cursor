@@ -112,9 +112,28 @@ class CursorControlPlaneRepository(
     }
   }
 
+
+  fun continueWithWeb() {
+    scope.launch {
+      val now = System.currentTimeMillis()
+      dao.clearRemoteCache()
+      dao.upsertAccount(
+        CursorAccountEntity(
+          accountType = CursorAccountKind.Web.storageKey,
+          apiKeyName = "Cursor web",
+          principal = "Browser session",
+          isServiceAccount = false,
+          verifiedAtMs = now,
+          linked = true,
+        ),
+      )
+      progress.value = progress.value.copy(errorMessage = null)
+    }
+  }
+
   fun unlink(kind: CursorAccountKind) {
     scope.launch {
-      authStore.clearToken(kind)
+      if (kind != CursorAccountKind.Web) authStore.clearToken(kind)
       dao.deleteAccount(kind.storageKey)
       dao.clearRemoteCache()
       selectedAgentId.value = null
@@ -345,6 +364,7 @@ class CursorControlPlaneRepository(
         require(!info.isServiceAccount) { "That looks like a service-account key. Put it in the pool key slot." }
       CursorAccountKind.ServiceAccount ->
         require(info.isServiceAccount) { "That looks like a user key. Pool management needs a service-account key." }
+      CursorAccountKind.Web -> Unit
     }
   }
 
