@@ -32,7 +32,6 @@ import com.example.cursor.ui.shell.ConversationPane
 import com.example.cursor.ui.shell.CursorShellViewModel
 import com.example.cursor.ui.shell.WorkbenchPane
 import com.example.cursor.ui.theme.CursorSpacing
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlin.coroutines.cancellation.CancellationException
@@ -42,7 +41,6 @@ fun CursorNavDisplay(
   windowLayoutInfo: Flow<WindowLayoutInfo>,
   modifier: Modifier = Modifier,
   providedViewModel: CursorShellViewModel? = null,
-  autoDemo: Boolean = false,
 ) {
   val context = LocalContext.current.applicationContext
   val viewModel: CursorShellViewModel = providedViewModel ?: viewModel { CursorShellViewModel.roomBacked(context) }
@@ -82,25 +80,6 @@ fun CursorNavDisplay(
     backStack.removeAll { it is WorkbenchKey && it.threadId == conversation.threadId }
     backStack.add(WorkbenchKey(conversation.threadId, kind))
     viewModel.navigationHandled()
-  }
-
-  LaunchedEffect(autoDemo, viewModel) {
-    if (!autoDemo) return@LaunchedEffect
-    val demoLoop =
-      listOf(
-        WorkbenchKind.Spec,
-        WorkbenchKind.CodeReview,
-        WorkbenchKind.Artifact,
-        WorkbenchKind.Handoff,
-        WorkbenchKind.Writing,
-      )
-    delay(700)
-    while (true) {
-      demoLoop.forEach { kind ->
-        viewModel.openWorkbench(kind)
-        delay(1_450)
-      }
-    }
   }
 
   PredictiveBackHandler(enabled = backStack.size > 1) { progress ->

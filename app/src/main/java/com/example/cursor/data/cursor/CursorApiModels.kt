@@ -14,6 +14,7 @@ import com.example.cursor.data.local.entity.CursorWorkerSummaryEntity
 enum class CursorAccountKind(val storageKey: String, val label: String) {
   User("user", "User"),
   ServiceAccount("service_account", "Service account"),
+  Web("web", "Cursor web"),
 }
 
 data class CursorKeyInfo(
@@ -157,7 +158,8 @@ data class CursorControlPlaneState(
   val userLinked: Boolean = accounts.any { it.accountType == CursorAccountKind.User.storageKey && it.linked }
   val serviceAccountLinked: Boolean =
     accounts.any { it.accountType == CursorAccountKind.ServiceAccount.storageKey && it.linked }
-  val anyLinked: Boolean = userLinked || serviceAccountLinked
+  val webLinked: Boolean = accounts.any { it.accountType == CursorAccountKind.Web.storageKey && it.linked }
+  val anyLinked: Boolean = userLinked || serviceAccountLinked || webLinked
   val selectedAgent: CursorAgentEntity? = agents.firstOrNull { it.id == selectedAgentId } ?: agents.firstOrNull()
   val selectedRun: CursorRunEntity? =
     selectedRunId?.let { id -> runs.firstOrNull { it.id == id } }
