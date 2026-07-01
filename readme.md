@@ -31,7 +31,7 @@
 <img src="docs/assets/cursor-launch-top-half.gif" width="360" alt="cursor android demo">
 </div>
 
-# cursor android
+# cursor for android
 
 chat with cursor agents from android.
 
